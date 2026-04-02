@@ -538,21 +538,58 @@ function bvS(S0,K,T,r,s,n,k){
   return -(D[0]*S0+B[0]);
 }
 function bens(S0,K,T,r,s,n,k){
-  const h=T/n,u=Math.exp(s*Math.sqrt(h)),d=1/u,ST=80;
-  const del=Array.from({length:ST+1},(_,i)=>i/ST);
+  // Traduction fidèle de TransactionCostPricer (Bensaid et al. 1992, version corrigée)
+  // - delta_steps=1000 (précision identique au Python)
+  // - récurrence backward de t=T-1 jusqu'à t=1
+  // - programme t=0 SANS coûts de transaction (correction bug original)
+  const h=T/n,u=Math.exp(s*Math.sqrt(h)),d=1/u;
+  const DS=1000;
+  const del=Array.from({length:DS+1},(_,i)=>i/DS);
+  const nd=DS+1;
   const phi=y=>y>=0?y*(1+k):y/(1+k);
+
+  // Condition terminale Q_T : shape (n+1) x nd
+  // Q[j][l] = max(S_T-K,0) + S_T * phi(-delta[l])
   let Q=[];
-  for(let j=0;j<=n;j++){const sv=S0*Math.pow(u,j)*Math.pow(d,n-j);Q.push(del.map(dp=>Math.max(sv-K,0)+sv*phi(-dp)));}
-  for(let t=n-1;t>=0;t--){
+  for(let j=0;j<=n;j++){
+    const ST=S0*Math.pow(u,j)*Math.pow(d,n-j);
+    const BT=Math.max(ST-K,0);
+    Q.push(del.map(dp=>BT+ST*phi(-dp)));
+  }
+
+  // Récurrence backward de t=T-1 jusqu'à t=1 (inclus)
+  for(let t=n-1;t>=1;t--){
     const nQ=[];
     for(let j=0;j<=t;j++){
-      const sv=S0*Math.pow(u,j)*Math.pow(d,t-j);
-      const Rt=del.map((_,i)=>Math.max(Q[j+1][i],Q[j][i]));
-      nQ.push(del.map(dp=>{let m=Infinity;for(let i2=0;i2<=ST;i2++){const v=Rt[i2]+sv*phi(del[i2]-dp);if(v<m)m=v;}return m;}));
+      const St=S0*Math.pow(u,j)*Math.pow(d,t-j);
+      // R_next[l] = max(Q_up[l], Q_down[l])
+      const Rt=new Float64Array(nd);
+      for(let l=0;l<nd;l++) Rt[l]=Math.max(Q[j+1][l],Q[j][l]);
+      // min_{delta_t} [ R_next(delta_t) + St*phi(delta_t - delta_{t-1}) ]
+      const best=new Float64Array(nd).fill(Infinity);
+      for(let l=0;l<nd;l++){
+        const base=Rt[l];
+        for(let i2=0;i2<nd;i2++){
+          const v=base+St*phi(del[l]-del[i2]);
+          if(v<best[i2]) best[i2]=v;
+        }
+      }
+      nQ.push(Array.from(best));
     }
     Q=nQ;
   }
-  return Q[0][0];
+
+  // Programme t=0 : PAS de coûts de transaction (correction vs code original)
+  // R1[l] = max(Q1_up[l], Q1_down[l])
+  // total_cost[l] = del[l]*S0 + R1[l]
+  // P1 = min_l total_cost[l]
+  let best=Infinity;
+  for(let l=0;l<nd;l++){
+    const R1=Math.max(Q[1][l],Q[0][l]);
+    const c=del[l]*S0+R1;
+    if(c<best) best=c;
+  }
+  return best;
 }
 function pLng(S0,K,T,r,s,n,k){
   const h=T/n,R=Math.pow(1+r,h),u=Math.exp(s*Math.sqrt(h)),d=1/u;
