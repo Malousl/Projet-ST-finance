@@ -543,7 +543,7 @@ function bens(S0,K,T,r,s,n,k){
   // récurrence backward de t=T-1 jusqu'à t=1
   // programme t=0 SANS coûts de transaction ("no transaction costs at origin", p.71)
   const h=T/n,u=Math.exp(s*Math.sqrt(h)),d=1/u;
-  const DS=200;
+  const DS=100;
   const del=new Float64Array(DS+1).map((_,i)=>i/DS);
   const nd=DS+1;
   const phi=y=>y>=0?y*(1+k):y/(1+k);
