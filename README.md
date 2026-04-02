@@ -7,7 +7,7 @@ Description
 
 Projet de finance mathématique sur le pricing et la couverture d’options en présence de coûts de transaction.
 
-Models implemented
+Modéle implémentés 
 Boyle & Vorst
 Leland
 Bensaid et al.
