@@ -1,19 +1,5 @@
 # Projet-ST-finance
-Titre
 
-Option Pricing under Transaction Costs
+Ce dépôt regroupe les codes développés dans le cadre du projet ST7 (Finance Stochastique et Modélisation des Risques) à CentraleSupélec. Il contient les implémentations simples des principaux modèles mathématiques d'évaluation et de couverture d'options en présence de coûts de transaction.
 
-Description
-
-Projet de finance mathématique sur le pricing et la couverture d’options en présence de coûts de transaction.
-
-Modéle implémentés 
-Boyle & Vorst
-Leland
-Bensaid et al.
-Palmer
-Features
-calcul du prix d’option
-comparaison entre modèles
-visualisation via interface HTML
-expérimentation sur les paramètres
+Chaque modèle est implémenté dans un script Python indépendant, centré sur la version simple de la théorie abordée dans notre rapport de recherche. L'exécution requiert uniquement les bibliothèques scientifiques standards pour reproduire instantanément les résultats numériques et les visualisations du projet.
