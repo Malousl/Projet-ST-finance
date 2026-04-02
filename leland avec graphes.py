@@ -87,7 +87,7 @@ for k in [0.005, 0.01, 0.02, 0.04]:
         Z_vals.append(black_scholes(S, K, T, r, sh) - bs_ref)
     ax.plot(dt_vals * 252, Z_vals, label=f'k = {int(k*100)}%')
 
-ax.set_xlabel('Fréquence de révision (nombre de pas par an)')
+ax.set_xlabel('Fréquence de révision (nombre de jours entre chaque révision)')
 ax.set_ylabel('Surcoût Z = Prix Leland − Prix BS')
 ax.set_title('Surcoût Z en fonction de la fréquence\n(Proposition I : $Z \\propto 1/\\sqrt{\\Delta t}$)')
 ax.legend(fontsize=8)
