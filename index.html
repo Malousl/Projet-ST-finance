@@ -543,7 +543,7 @@ function bens(S0,K,T,r,s,n,k){
   // récurrence backward de t=T-1 jusqu'à t=1
   // programme t=0 SANS coûts de transaction ("no transaction costs at origin", p.71)
   const h=T/n,u=Math.exp(s*Math.sqrt(h)),d=1/u;
-  const DS=100;
+  const DS=200;
   const del=new Float64Array(DS+1).map((_,i)=>i/DS);
   const nd=DS+1;
   const phi=y=>y>=0?y*(1+k):y/(1+k);
@@ -660,7 +660,8 @@ function compute(){
     const lel=lC(p.S0,p.K,p.T,p.r,p.sigma,p.k,p.n);
     const lP=isL?lel.ask:lel.bid;
     const bvP=isL?bvL(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k):bvS(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k);
-    const beP=bens(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k);
+    const BENS_N_MAX=52;const bensN=Math.min(p.n,BENS_N_MAX);const bensCapped=p.n>BENS_N_MAX;
+    const beP=bens(p.S0,p.K,p.T,p.r,p.sigma,bensN,p.k);
     const paP=isL?pLng(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k):pSht(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k);
     const bvOK=u*(1-p.k)>=R*(1+p.k)&&d*(1+p.k)<=R*(1-p.k);
 
@@ -682,7 +683,7 @@ function compute(){
     document.getElementById('price-bensaid').textContent=fmt(beP);
     document.getElementById('bs-u').textContent=u.toFixed(4);
     document.getElementById('bs-d').textContent=d.toFixed(4);
-    document.getElementById('bs-n').textContent=p.n;
+    document.getElementById('bs-n').textContent=bensCapped?`${bensN} ⚠ plafonné (n=${p.n} → diverge)`:p.n;
     const dB=!isNaN(bvP)?beP-bvP:NaN;
     document.getElementById('bs-vs-bv').textContent=isNaN(dB)?'—':(dB>=0?'+':'')+fmt(dB);
 
