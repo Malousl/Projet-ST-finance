@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Option Pricer — Marchés avec Coûts de Transaction</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0d0f;--surface:#141418;--surface2:#1c1c22;--border:#2a2a35;
+    --accent:#c8a96e;--accent2:#7eb8c8;--accent3:#c87e9a;--accent4:#7ec87e;
+    --text:#e8e4dc;--text-muted:#7a7870;--text-dim:#4a4845;
+    --leland-color:#c8a96e;--bv-color:#7eb8c8;--bensaid-color:#c87e9a;--palmer-color:#7ec87e;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(200,169,110,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(200,169,110,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  .container{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:0 24px 60px;}
+  header{padding:48px 0 40px;border-bottom:1px solid var(--border);margin-bottom:40px;}
+  .header-tag{font-size:10px;letter-spacing:0.2em;color:var(--accent);text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .header-tag::before{content:'';width:20px;height:1px;background:var(--accent);}
+  h1{font-family:'Fraunces',serif;font-size:clamp(28px,4vw,48px);font-weight:300;line-height:1.1;margin-bottom:8px;}
+  h1 em{font-style:italic;color:var(--accent);}
+  .header-sub{color:var(--text-muted);font-size:11px;letter-spacing:0.05em;margin-top:12px;}
+  .model-badges{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;}
+  .badge{padding:4px 12px;border-radius:2px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;border:1px solid;}
+  .badge-leland{border-color:var(--leland-color);color:var(--leland-color);}
+  .badge-bv{border-color:var(--bv-color);color:var(--bv-color);}
+  .badge-bensaid{border-color:var(--bensaid-color);color:var(--bensaid-color);}
+  .badge-palmer{border-color:var(--palmer-color);color:var(--palmer-color);}
+  .main-grid{display:grid;grid-template-columns:390px 1fr;gap:24px;align-items:start;}
+  @media(max-width:900px){.main-grid{grid-template-columns:1fr;}}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+  .panel-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .panel-title{font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);}
+  .panel-body{padding:20px;}
+  .section-label{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .sep{height:1px;background:var(--border);margin:18px 0;}
+
+  /* Param rows with slider + number input */
+  .param-row{margin-bottom:13px;}
+  .param-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:8px;}
+  .param-label{color:var(--text-muted);font-size:11px;display:flex;align-items:center;gap:6px;flex:1;}
+  .param-symbol{font-family:'Fraunces',serif;font-style:italic;color:var(--accent);font-size:13px;}
+  .param-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:3px 7px;width:76px;border-radius:2px;outline:none;text-align:right;transition:border-color 0.15s;}
+  .param-input:focus{border-color:var(--accent);}
+  input[type="range"]{-webkit-appearance:none;width:100%;height:2px;background:var(--border);outline:none;border-radius:1px;}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;background:var(--accent);border-radius:50%;cursor:pointer;transition:transform 0.15s,box-shadow 0.15s;}
+  input[type="range"]::-webkit-slider-thumb:hover{transform:scale(1.3);box-shadow:0 0 0 4px rgba(200,169,110,0.15);}
+
+  /* Stock cards */
+  .stock-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
+  .stock-card{padding:8px 10px;border:1px solid var(--border);border-radius:2px;cursor:pointer;transition:all 0.15s;background:transparent;}
+  .stock-card:hover{border-color:var(--accent);background:rgba(200,169,110,0.04);}
+  .stock-card.active{border-color:var(--accent);background:rgba(200,169,110,0.08);}
+  .stock-ticker{font-size:11px;color:var(--accent);font-weight:500;letter-spacing:0.05em;}
+  .stock-name{font-size:9px;color:var(--text-dim);margin-top:2px;}
+  .stock-period{font-size:9px;color:var(--text-muted);margin-top:3px;}
+  .stock-sigma{font-size:10px;color:var(--accent4);margin-top:2px;}
+  .hist-info{padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:2px;font-size:10px;color:var(--text-muted);line-height:1.6;display:none;}
+  .hist-info.visible{display:block;}
+  .hist-info strong{color:var(--accent);}
+  .hist-note{margin-top:8px;padding:7px 10px;background:rgba(126,200,126,0.06);border:1px solid rgba(126,200,126,0.2);border-radius:2px;font-size:9px;color:var(--accent4);line-height:1.5;}
+
+  /* Model toggles */
+  .model-toggles{display:flex;flex-direction:column;gap:7px;margin-bottom:18px;}
+  .model-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;padding:7px 12px;border:1px solid var(--border);border-radius:2px;transition:all 0.15s;user-select:none;}
+  .model-toggle:hover{background:var(--surface2);}
+  .model-toggle.active{background:var(--surface2);}
+  .toggle-dot{width:8px;height:8px;border-radius:50%;border:1px solid;transition:all 0.15s;flex-shrink:0;}
+  .toggle-dot.filled{background:currentColor;}
+  .toggle-leland{color:var(--leland-color);}
+  .toggle-bv{color:var(--bv-color);}
+  .toggle-bensaid{color:var(--bensaid-color);}
+  .toggle-palmer{color:var(--palmer-color);}
+  .toggle-name{font-size:11px;color:var(--text);flex:1;}
+  .toggle-year{font-size:10px;color:var(--text-dim);}
+
+  .type-selector{display:flex;margin-bottom:16px;border:1px solid var(--border);border-radius:2px;overflow:hidden;}
+  .type-btn{flex:1;padding:8px;background:transparent;border:none;color:var(--text-muted);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}
+  .type-btn.active{background:var(--accent);color:var(--bg);}
+  .type-btn:not(.active):hover{background:var(--surface2);color:var(--text);}
+
+  .btn-compute{width:100%;padding:12px;background:var(--accent);color:var(--bg);border:none;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.2s;margin-top:4px;}
+  .btn-compute:hover{background:#d4ba82;transform:translateY(-1px);box-shadow:0 4px 20px rgba(200,169,110,0.3);}
+  .btn-compute:active{transform:translateY(0);}
+
+  .le-display{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:2px;margin-top:8px;}
+  .le-label{font-size:10px;color:var(--text-muted);}
+  .le-value{font-family:'Fraunces',serif;font-style:italic;font-size:16px;color:var(--accent);}
+  .le-status{font-size:10px;padding:2px 8px;border-radius:2px;}
+  .le-ok{background:rgba(126,200,126,0.15);color:var(--accent4);}
+  .le-warn{background:rgba(200,126,154,0.15);color:var(--accent3);}
+  .warning{padding:8px 12px;background:rgba(200,126,154,0.1);border:1px solid rgba(200,126,154,0.3);border-radius:2px;font-size:10px;color:var(--accent3);margin-top:8px;display:none;}
+  .computing{display:none;align-items:center;gap:8px;color:var(--text-muted);font-size:11px;padding:8px 0;}
+  .spinner{width:14px;height:14px;border:1px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* Result cards */
+  .results-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px;}
+  @media(max-width:700px){.results-grid{grid-template-columns:1fr;}}
+  .result-card{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:16px;position:relative;overflow:hidden;transition:all 0.3s;}
+  .result-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;}
+  .result-card.leland::before{background:var(--leland-color);}
+  .result-card.bv::before{background:var(--bv-color);}
+  .result-card.bensaid::before{background:var(--bensaid-color);}
+  .result-card.palmer::before{background:var(--palmer-color);}
+  .result-card.hidden{opacity:0.3;filter:grayscale(1);}
+  .card-model-name{font-size:9px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:12px;}
+  .card-model-name.leland{color:var(--leland-color);}
+  .card-model-name.bv{color:var(--bv-color);}
+  .card-model-name.bensaid{color:var(--bensaid-color);}
+  .card-model-name.palmer{color:var(--palmer-color);}
+  .price-main{font-family:'Fraunces',serif;font-size:36px;font-weight:300;color:var(--text);line-height:1;margin-bottom:4px;}
+  .price-label{font-size:10px;color:var(--text-muted);margin-bottom:14px;}
+  .price-details{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--border);padding-top:12px;}
+  .detail-row{display:flex;justify-content:space-between;align-items:center;}
+  .detail-key{font-size:10px;color:var(--text-muted);}
+  .detail-val{font-size:11px;color:var(--text);}
+
+  /* Chart */
+  .chart-controls{display:flex;gap:8px;flex-wrap:wrap;}
+  .chart-btn{padding:6px 14px;background:transparent;border:1px solid var(--border);color:var(--text-muted);font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all 0.15s;}
+  .chart-btn:hover,.chart-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(200,169,110,0.05);}
+  canvas{width:100%!important;background:var(--surface2);border:1px solid var(--border);border-radius:4px;}
+
+  /* Table */
+  .comparison-table{width:100%;border-collapse:collapse;font-size:11px;}
+  .comparison-table th{padding:10px 16px;text-align:left;font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--surface);}
+  .comparison-table td{padding:10px 16px;border-bottom:1px solid var(--border);color:var(--text-muted);}
+  .comparison-table tr:last-child td{border-bottom:none;}
+  .comparison-table tr:hover td{background:rgba(255,255,255,0.02);color:var(--text);}
+  .td-model{font-size:10px;letter-spacing:0.05em;font-weight:500;}
+  .td-leland{color:var(--leland-color)!important;}
+  .td-bv{color:var(--bv-color)!important;}
+  .td-bensaid{color:var(--bensaid-color)!important;}
+  .td-palmer{color:var(--palmer-color)!important;}
+  .td-price{font-family:'Fraunces',serif;font-size:16px;font-weight:300;color:var(--text)!important;}
+
+  /* Historical banner */
+  .hist-banner{display:none;padding:16px;background:rgba(126,200,126,0.05);border:1px solid rgba(126,200,126,0.2);border-radius:4px;margin-bottom:20px;font-size:11px;line-height:1.7;}
+  .hist-banner.visible{display:block;}
+  .hist-banner-title{font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--accent4);margin-bottom:12px;}
+  .hist-row{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+  .hist-item{display:flex;flex-direction:column;gap:3px;}
+  .hist-item-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.1em;}
+  .hist-item-val{font-family:'Fraunces',serif;font-size:20px;font-weight:300;color:var(--text);}
+  .hist-item-sub{font-size:10px;color:var(--text-muted);}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="header-tag">ST7 — Finance stochastique & modélisation des risques</div>
+  <h1>Option Pricer<br><em>avec coûts de transaction</em></h1>
+  <p class="header-sub">CentraleSupélec · 2025 — Comparaison des modèles en temps discret</p>
+  <div class="model-badges">
+    <span class="badge badge-leland">Leland 1985</span>
+    <span class="badge badge-bv">Boyle-Vorst 1992</span>
+    <span class="badge badge-bensaid">Bensaid et al. 1992</span>
+    <span class="badge badge-palmer">Palmer 2001</span>
+  </div>
+</header>
+
+<div class="main-grid">
+
+<!-- ══ LEFT ══ -->
+<div>
+<div class="panel">
+  <div class="panel-header"><span class="panel-title">Paramètres</span><span style="font-size:10px;color:var(--text-dim)">call européen</span></div>
+  <div class="panel-body">
+
+    <div class="section-label">Cas historiques préchargés</div>
+    <div class="stock-grid" id="stock-grid"></div>
+    <div class="hist-info" id="hist-info"></div>
+    <div class="hist-note">σ estimée sur données historiques journalières · à titre pédagogique</div>
+
+    <div class="sep"></div>
+    <div class="section-label">Type de position</div>
+    <div class="type-selector">
+      <button class="type-btn active" id="btn-long" onclick="setType('long')">Long</button>
+      <button class="type-btn" id="btn-short" onclick="setType('short')">Short</button>
+    </div>
+
+    <div class="section-label">Actif sous-jacent</div>
+
+    <div class="param-row">
+      <div class="param-top">
+        <label class="param-label"><span class="param-symbol">S₀</span> Prix initial</label>
+        <input type="number" class="param-input" id="ni-S0" value="100" step="1" min="10" max="5000" oninput="syncI('S0')">
+      </div>
+      <input type="range" id="S0" min="50" max="500" value="100" step="1" oninput="syncS('S0')">
+    </div>
+
+    <div class="param-row">
+      <div class="param-top">
+        <label class="param-label"><span class="param-symbol">K</span> Prix d'exercice</label>
+        <input type="number" class="param-input" id="ni-K" value="100" step="1" min="10" max="5000" oninput="syncI('K')">
+      </div>
+      <input type="range" id="K" min="50" max="500" value="100" step="1" oninput="syncS('K')">
+    </div>
+
+    <div class="param-row">
+      <div class="param-top">
+        <label class="param-label"><span class="param-symbol">σ</span> Volatilité (%)</label>
+        <input type="number" class="param-input" id="ni-sigma" value="20.0" step="0.5" min="1" max="100" oninput="syncI('sigma')">
+      </div>
+      <input type="range" id="sigma" min="0.05" max="0.8" value="0.2" step="0.005" oninput="syncS('sigma')">
+    </div>
+
+    <div class="param-row">
+      <div class="param-top">
+        <label class="param-label"><span class="param-symbol">r</span> Taux sans risque (%)</label>
+        <input type="number" class="param-input" id="ni-r" value="5.0" step="0.1" min="0" max="20" oninput="syncI('r')">
+      </div>
+      <input type="range" id="r" min="0" max="0.15" value="0.05" step="0.001" oninput="syncS('r')">
+    </div>
+
+    <div class="param-row">
+      <div class="param-top">
+        <label class="param-label"><span class="param-symbol">T</span> Maturité (années)</label>
+        <input type="number" class="param-input" id="ni-T" value="1.00" step="0.25" min="0.08" max="5" oninput="syncI('T')">
+      </div>
+      <input type="range" id="T" min="0.25" max="3" value="1" step="0.25" oninput="syncS('T')">
+    </div>
+
+    <div class="sep"></div>
+    <div class="section-label">Coûts de transaction</div>
+
+    <div class="param-row">
+      <div class="param-top">
+        <label class="param-label"><span class="param-symbol">k</span> Taux de coût (%)</label>
+        <input type="number" class="param-input" id="ni-k" value="0.500" step="0.05" min="0" max="5" oninput="syncI('k')">
+      </div>
+      <input type="range" id="k" min="0" max="0.05" value="0.005" step="0.0005" oninput="syncS('k')">
+    </div>
+
+    <div class="param-row">
+      <div class="param-top">
+        <label class="param-label"><span class="param-symbol">n</span> Nb de périodes</label>
+        <input type="number" class="param-input" id="ni-n" value="52" step="1" min="2" max="250" oninput="syncI('n')">
+      </div>
+      <input type="range" id="n" min="2" max="250" value="52" step="1" oninput="syncS('n')">
+    </div>
+
+    <div class="le-display">
+      <span class="le-label">Nombre de Leland <em>Lₑ</em></span>
+      <span class="le-value" id="le-val">—</span>
+      <span class="le-status" id="le-status">—</span>
+    </div>
+    <div class="warning" id="warning-le">⚠ Lₑ &gt; 1 : volatilité ajustée négative (position courte invalide).</div>
+
+    <div class="sep"></div>
+    <div class="section-label">Modèles actifs</div>
+    <div class="model-toggles">
+      <div class="model-toggle toggle-leland active" id="t-leland" onclick="toggleModel('leland')">
+        <div class="toggle-dot filled" id="d-leland"></div><span class="toggle-name">Leland</span><span class="toggle-year">1985</span>
+      </div>
+      <div class="model-toggle toggle-bv active" id="t-bv" onclick="toggleModel('bv')">
+        <div class="toggle-dot filled" id="d-bv"></div><span class="toggle-name">Boyle-Vorst</span><span class="toggle-year">1992</span>
+      </div>
+      <div class="model-toggle toggle-bensaid active" id="t-bensaid" onclick="toggleModel('bensaid')">
+        <div class="toggle-dot filled" id="d-bensaid"></div><span class="toggle-name">Bensaïd et al.</span><span class="toggle-year">1992</span>
+      </div>
+      <div class="model-toggle toggle-palmer active" id="t-palmer" onclick="toggleModel('palmer')">
+        <div class="toggle-dot filled" id="d-palmer"></div><span class="toggle-name">Palmer</span><span class="toggle-year">2001</span>
+      </div>
+    </div>
+    <div class="computing" id="computing"><div class="spinner"></div>Calcul en cours…</div>
+    <button class="btn-compute" onclick="compute()">↳ Calculer les prix</button>
+  </div>
+</div>
+</div>
+
+<!-- ══ RIGHT ══ -->
+<div>
+<div class="panel">
+  <div class="panel-header"><span class="panel-title">Résultats</span><span style="font-size:10px;color:var(--text-dim)" id="result-params">—</span></div>
+  <div class="panel-body">
+
+    <div class="hist-banner" id="hist-banner"></div>
+
+    <div class="results-grid">
+      <div class="result-card leland" id="card-leland">
+        <div class="card-model-name leland">Leland · 1985</div>
+        <div class="price-main" id="price-leland">—</div>
+        <div class="price-label" id="leland-pl">prix ask (position longue)</div>
+        <div class="price-details">
+          <div class="detail-row"><span class="detail-key">σ̂ ajustée</span><span class="detail-val" id="leland-sigma">—</span></div>
+          <div class="detail-row"><span class="detail-key">Lₑ</span><span class="detail-val" id="leland-le">—</span></div>
+          <div class="detail-row"><span class="detail-key">Prix bid</span><span class="detail-val" id="leland-bid">—</span></div>
+          <div class="detail-row"><span class="detail-key">Spread bid/ask</span><span class="detail-val" id="leland-spread">—</span></div>
+          <div class="detail-row"><span class="detail-key">BS sans frais</span><span class="detail-val" id="leland-bs">—</span></div>
+        </div>
+      </div>
+      <div class="result-card bv" id="card-bv">
+        <div class="card-model-name bv">Boyle-Vorst · 1992</div>
+        <div class="price-main" id="price-bv">—</div>
+        <div class="price-label" id="bv-label">prix (position longue)</div>
+        <div class="price-details">
+          <div class="detail-row"><span class="detail-key">u</span><span class="detail-val" id="bv-u">—</span></div>
+          <div class="detail-row"><span class="detail-key">d</span><span class="detail-val" id="bv-d">—</span></div>
+          <div class="detail-row"><span class="detail-key">R (1 période)</span><span class="detail-val" id="bv-R">—</span></div>
+          <div class="detail-row"><span class="detail-key">n périodes</span><span class="detail-val" id="bv-n">—</span></div>
+        </div>
+      </div>
+      <div class="result-card bensaid" id="card-bensaid">
+        <div class="card-model-name bensaid">Bensaïd et al. · 1992</div>
+        <div class="price-main" id="price-bensaid">—</div>
+        <div class="price-label">coût de fabrication (borne sup.)</div>
+        <div class="price-details">
+          <div class="detail-row"><span class="detail-key">u</span><span class="detail-val" id="bs-u">—</span></div>
+          <div class="detail-row"><span class="detail-key">d</span><span class="detail-val" id="bs-d">—</span></div>
+          <div class="detail-row"><span class="detail-key">n périodes</span><span class="detail-val" id="bs-n">—</span></div>
+          <div class="detail-row"><span class="detail-key">vs Boyle-Vorst</span><span class="detail-val" id="bs-vs-bv">—</span></div>
+        </div>
+      </div>
+      <div class="result-card palmer" id="card-palmer">
+        <div class="card-model-name palmer">Palmer · 2001</div>
+        <div class="price-main" id="price-palmer">—</div>
+        <div class="price-label" id="palmer-label">prix (position longue)</div>
+        <div class="price-details">
+          <div class="detail-row"><span class="detail-key">Méthode</span><span class="detail-val">Palmer (2001)</span></div>
+          <div class="detail-row"><span class="detail-key">vs Boyle-Vorst</span><span class="detail-val" id="palmer-vs-bv">—</span></div>
+          <div class="detail-row"><span class="detail-key">Cond. BV valide</span><span class="detail-val" id="palmer-bv-cond">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-header" style="border:1px solid var(--border);border-radius:4px 4px 0 0;margin-bottom:0">
+      <span class="panel-title">Analyse de sensibilité</span>
+      <div class="chart-controls">
+        <button class="chart-btn active" onclick="setCP('k',this)">vs k</button>
+        <button class="chart-btn" onclick="setCP('S0',this)">vs S₀</button>
+        <button class="chart-btn" onclick="setCP('n',this)">vs n</button>
+        <button class="chart-btn" onclick="setCP('sigma',this)">vs σ</button>
+      </div>
+    </div>
+    <canvas id="myChart" height="280"></canvas>
+
+    <div class="panel-header" style="border:1px solid var(--border);border-radius:4px 4px 0 0;margin-top:24px;margin-bottom:0">
+      <span class="panel-title">Tableau comparatif</span>
+    </div>
+    <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 4px 4px;overflow:hidden">
+      <table class="comparison-table">
+        <thead><tr><th>Modèle</th><th>Prix</th><th>Cadre</th><th>Réplication</th><th>Écart vs BS</th></tr></thead>
+        <tbody id="comp-table-body">
+          <tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:20px">Cliquer sur "Calculer les prix"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</div>
+</div><!-- /main-grid -->
+</div><!-- /container -->
+
+<script>
+// ══ HISTORICAL PRESETS ══
+const PRESETS=[
+  {id:'aapl_2023',ticker:'AAPL',name:'Apple Inc.',period:'Jan 2023 – Jan 2024',
+   S0:130,K:130,sigma:0.283,r:0.052,T:1,k:0.001,n:52,
+   marketPrice:22.40,marketNote:'Call ATM ~1an, CBOE Jan 2024',
+   context:"Reprise tech post-2022, hausse des taux Fed. σ historique de 28.3%.",regime:'Volatilité modérée-élevée'},
+  {id:'tsla_2021',ticker:'TSLA',name:'Tesla Inc.',period:'Jan 2021 – Jan 2022',
+   S0:700,K:700,sigma:0.621,r:0.025,T:1,k:0.001,n:52,
+   marketPrice:195.0,marketNote:'Call ATM ~1an, CBOE (approx.)',
+   context:"Année extrêmement volatile pour Tesla. σ de 62%.",regime:'Volatilité extrême'},
+  {id:'spy_2019',ticker:'SPY',name:'S&P 500 ETF',period:'Jan 2019 – Jan 2020',
+   S0:257,K:257,sigma:0.128,r:0.024,T:1,k:0.0005,n:52,
+   marketPrice:17.50,marketNote:'Call ATM ~1an (approx.)',
+   context:"Marché haussier calme pré-COVID. σ de 12.8%, conditions idéales pour BS.",regime:'Faible volatilité'},
+  {id:'bnp_2022',ticker:'BNP.PA',name:'BNP Paribas',period:'Jan 2022 – Jan 2023',
+   S0:55,K:55,sigma:0.312,r:0.020,T:1,k:0.002,n:52,
+   marketPrice:8.90,marketNote:'Call ATM ~1an, Euronext (approx.)',
+   context:"Crise énergétique et hausse des taux BCE. Forte volatilité des bancaires.",regime:'Volatilité élevée'},
+  {id:'lvmh_2023',ticker:'MC.PA',name:'LVMH',period:'Jan 2023 – Jan 2024',
+   S0:780,K:780,sigma:0.198,r:0.038,T:1,k:0.002,n:52,
+   marketPrice:82.0,marketNote:'Call ATM ~1an, Euronext (approx.)',
+   context:"Léger recul du secteur luxe. σ de 19.8% dans la moyenne historique.",regime:'Volatilité modérée'},
+  {id:'spy_2020',ticker:'SPY',name:'S&P 500 · COVID',period:'Jan 2020 – Jan 2021',
+   S0:320,K:320,sigma:0.438,r:0.008,T:1,k:0.0005,n:52,
+   marketPrice:52.0,marketNote:'Call ATM ~1an (approx.)',
+   context:"Krach COVID mars 2020 puis rebond historique. σ de 43.8%.",regime:'Crise — volatilité extrême'},
+];
+
+let activePreset=null,activeModels={leland:true,bv:true,bensaid:true,palmer:true};
+let positionType='long',chartParam='k',lastP=null;
+
+// ══ STOCK GRID ══
+function initStockGrid(){
+  document.getElementById('stock-grid').innerHTML=PRESETS.map(p=>`
+    <div class="stock-card" id="sc-${p.id}" onclick="loadPreset('${p.id}')">
+      <div class="stock-ticker">${p.ticker}</div>
+      <div class="stock-name">${p.name}</div>
+      <div class="stock-period">${p.period}</div>
+      <div class="stock-sigma">σ = ${(p.sigma*100).toFixed(1)}%</div>
+    </div>`).join('');
+}
+
+function loadPreset(id){
+  const p=PRESETS.find(x=>x.id===id);if(!p)return;
+  activePreset=p;
+  document.querySelectorAll('.stock-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('sc-'+id).classList.add('active');
+  // sigma, r, k stored as raw in sliders but displayed as % in number inputs
+  setParamRaw('S0',p.S0);setParamRaw('K',p.K);
+  setParamPct('sigma',p.sigma);setParamPct('r',p.r);
+  setParamRaw('T',p.T);setParamPct('k',p.k);setParamRaw('n',p.n);
+  const info=document.getElementById('hist-info');
+  info.className='hist-info visible';
+  info.innerHTML=`<strong>${p.ticker} · ${p.period}</strong><br>${p.context}<br><em>Régime : ${p.regime}</em>`;
+  updateLe();
+}
+
+function setParamRaw(id,v){
+  document.getElementById(id).value=v;
+  document.getElementById('ni-'+id).value=id==='T'?v.toFixed(2):v;
+}
+function setParamPct(id,v){
+  document.getElementById(id).value=v;
+  const dec=id==='k'?3:id==='r'?2:1;
+  document.getElementById('ni-'+id).value=(v*100).toFixed(dec);
+}
+
+// ══ PARAM SYNC ══
+const PCT_PARAMS=['sigma','r','k'];
+function isPct(id){return PCT_PARAMS.includes(id);}
+
+function syncS(id){ // slider → input
+  const v=+document.getElementById(id).value;
+  const ni=document.getElementById('ni-'+id);
+  if(isPct(id)){const dec=id==='k'?3:id==='r'?2:1;ni.value=(v*100).toFixed(dec);}
+  else ni.value=id==='T'?v.toFixed(2):v;
+  updateLe();resetPreset();
+}
+function syncI(id){ // input → slider
+  const v=+document.getElementById('ni-'+id).value;
+  const sl=document.getElementById(id);
+  const raw=isPct(id)?v/100:v;
+  sl.value=Math.min(Math.max(raw,+sl.min),+sl.max);
+  updateLe();resetPreset();
+}
+function resetPreset(){activePreset=null;document.querySelectorAll('.stock-card').forEach(c=>c.classList.remove('active'));}
+
+function getP(){
+  return{
+    S0:+document.getElementById('S0').value,
+    K:+document.getElementById('K').value,
+    sigma:+document.getElementById('sigma').value,
+    r:+document.getElementById('r').value,
+    T:+document.getElementById('T').value,
+    k:+document.getElementById('k').value,
+    n:Math.max(2,Math.round(+document.getElementById('n').value)),
+  };
+}
+
+function updateLe(){
+  const p=getP();const dt=p.T/p.n;
+  const Le=p.sigma>0?p.k*Math.sqrt(2/(Math.PI*dt))/p.sigma:0;
+  document.getElementById('le-val').textContent=Le.toFixed(4);
+  const st=document.getElementById('le-status'),w=document.getElementById('warning-le');
+  if(Le>1){st.textContent='L > 1';st.className='le-status le-warn';w.style.display='block';}
+  else{st.textContent='OK';st.className='le-status le-ok';w.style.display='none';}
+}
+
+function setType(t){
+  positionType=t;
+  document.getElementById('btn-long').className='type-btn'+(t==='long'?' active':'');
+  document.getElementById('btn-short').className='type-btn'+(t==='short'?' active':'');
+}
+function toggleModel(m){
+  activeModels[m]=!activeModels[m];
+  document.getElementById('d-'+m).className='toggle-dot'+(activeModels[m]?' filled':'');
+  const tog=document.getElementById('t-'+m);
+  tog.className=tog.className.replace(' active','')+(activeModels[m]?' active':'');
+  const card=document.getElementById('card-'+m);
+  if(card)card.className=card.className.replace(' hidden','')+(activeModels[m]?'':' hidden');
+}
+function setCP(p,btn){
+  chartParam=p;
+  document.querySelectorAll('.chart-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(lastP)drawChart(lastP);
+}
+
+// ══ MATH ══
+function ncdf(x){
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const s=x<0?-1:1;x=Math.abs(x)/Math.SQRT2;
+  const t=1/(1+p*x);
+  return 0.5*(1+s*(1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x)));
+}
+function bs(S,K,T,r,sig){
+  if(T<=0)return Math.max(S-K,0);
+  const d1=(Math.log(S/K)+(r+.5*sig*sig)*T)/(sig*Math.sqrt(T));
+  return S*ncdf(d1)-K*Math.exp(-r*T)*ncdf(d1-sig*Math.sqrt(T));
+}
+function lC(S,K,T,r,s,k,n){
+  const dt=T/n,Le=k*Math.sqrt(2/(Math.PI*dt))/s;
+  const s2a=s*s*(1+Le),s2b=s*s*(1-Le),base=bs(S,K,T,r,s);
+  if(s2b<=0)return{ask:NaN,bid:NaN,base,Le,sa:NaN,sb:NaN,spread:NaN};
+  const sa=Math.sqrt(s2a),sb=Math.sqrt(s2b);
+  return{ask:bs(S,K,T,r,sa),bid:bs(S,K,T,r,sb),base,Le,sa,sb,spread:bs(S,K,T,r,sa)-bs(S,K,T,r,sb)};
+}
+function bvL(S0,K,T,r,s,n,k){
+  const h=T/n,R=Math.pow(1+r,h),u=Math.exp(s*Math.sqrt(h)),d=1/u,ub=u*(1+k),db=d*(1-k);
+  let D=[],B=[];
+  for(let j=0;j<=n;j++){const sv=S0*Math.pow(u,j)*Math.pow(d,n-j);D.push(sv>K?1:0);B.push(sv>K?-K:0);}
+  for(let i=n-1;i>=0;i--){
+    const dn=[],bn=[];
+    for(let j=0;j<=i;j++){
+      const sv=S0*Math.pow(u,j)*Math.pow(d,i-j);
+      const Vu=D[j+1]*sv*ub+B[j+1],Vd=D[j]*sv*db+B[j];
+      const dv=(Vu-Vd)/(sv*(ub-db));dn.push(dv);bn.push((Vd-dv*sv*db)/R);
+    }
+    D=dn;B=bn;
+  }
+  return D[0]*S0+B[0];
+}
+function bvS(S0,K,T,r,s,n,k){
+  const h=T/n,R=Math.pow(1+r,h),u=Math.exp(s*Math.sqrt(h)),d=1/u;
+  if(u*(1-k)<R*(1+k)||d*(1+k)>R*(1-k))return NaN;
+  const ub=u*(1-k),db=d*(1+k);
+  let D=[],B=[];
+  for(let j=0;j<=n;j++){const sv=S0*Math.pow(u,j)*Math.pow(d,n-j);D.push(sv>K?-1:0);B.push(sv>K?K:0);}
+  for(let i=n-1;i>=0;i--){
+    const dn=[],bn=[];
+    for(let j=0;j<=i;j++){
+      const sv=S0*Math.pow(u,j)*Math.pow(d,i-j);
+      const Vu=D[j+1]*sv*ub+B[j+1],Vd=D[j]*sv*db+B[j];
+      const dv=(Vu-Vd)/(sv*(ub-db));dn.push(dv);bn.push((Vd-dv*sv*db)/R);
+    }
+    D=dn;B=bn;
+  }
+  return -(D[0]*S0+B[0]);
+}
+function bens(S0,K,T,r,s,n,k){
+  const h=T/n,u=Math.exp(s*Math.sqrt(h)),d=1/u,ST=80;
+  const del=Array.from({length:ST+1},(_,i)=>i/ST);
+  const phi=y=>y>=0?y*(1+k):y/(1+k);
+  let Q=[];
+  for(let j=0;j<=n;j++){const sv=S0*Math.pow(u,j)*Math.pow(d,n-j);Q.push(del.map(dp=>Math.max(sv-K,0)+sv*phi(-dp)));}
+  for(let t=n-1;t>=0;t--){
+    const nQ=[];
+    for(let j=0;j<=t;j++){
+      const sv=S0*Math.pow(u,j)*Math.pow(d,t-j);
+      const Rt=del.map((_,i)=>Math.max(Q[j+1][i],Q[j][i]));
+      nQ.push(del.map(dp=>{let m=Infinity;for(let i2=0;i2<=ST;i2++){const v=Rt[i2]+sv*phi(del[i2]-dp);if(v<m)m=v;}return m;}));
+    }
+    Q=nQ;
+  }
+  return Q[0][0];
+}
+function pLng(S0,K,T,r,s,n,k){
+  const h=T/n,R=Math.pow(1+r,h),u=Math.exp(s*Math.sqrt(h)),d=1/u;
+  let D=[],B=[];
+  for(let j=0;j<=n;j++){const sv=S0*Math.pow(u,j)*Math.pow(d,n-j);D.push(sv>K?1:0);B.push(sv>K?-K:0);}
+  for(let i=n-1;i>=0;i--){
+    const dn=[],bn=[];
+    for(let j=0;j<=i;j++){
+      const sv=S0*Math.pow(u,j)*Math.pow(d,i-j);
+      const du=D[j+1],dd=D[j],Bu=B[j+1],Bd=B[j];
+      const C=(du*u-dd*d)/(u-d)+(Bu-Bd)/(sv*(u-d));
+      const fu=du-C-k*(0-Math.abs(dd-du)*d)/(u-d);
+      const fd=dd-C-k*(Math.abs(du-dd)*u-0)/(u-d);
+      let dv;
+      if(du>=dd){if(fd>=0)dv=(C+k/(u-d)*(du*u-dd*d))/(1+k);else if(fu>=0)dv=(C+k/(u-d)*(du*u+dd*d))/(1+k*(u+d)/(u-d));else dv=(C-k/(u-d)*(du*u-dd*d))/(1-k);}
+      else{if(fu>=0)dv=(C+k/(u-d)*(du*u-dd*d))/(1+k);else if(fd>=0)dv=(C-k/(u-d)*(du*u+dd*d))/(1-k*(u+d)/(u-d));else dv=(C-k/(u-d)*(du*u-dd*d))/(1-k);}
+      dn.push(dv);bn.push((sv*u*(du-dv+k*Math.abs(du-dv))+Bu)/R);
+    }
+    D=dn;B=bn;
+  }
+  return D[0]*S0+B[0];
+}
+function pSht(S0,K,T,r,s,n,k){
+  const h=T/n,R=Math.pow(1+r,h),u=Math.exp(s*Math.sqrt(h)),d=1/u;
+  let D=[],B=[];
+  for(let j=0;j<=n;j++){const sv=S0*Math.pow(u,j)*Math.pow(d,n-j);D.push(sv>K?-1:0);B.push(sv>K?K:0);}
+  for(let i=n-1;i>=0;i--){
+    const dn=[],bn=[];
+    for(let j=0;j<=i;j++){
+      const sv=S0*Math.pow(u,j)*Math.pow(d,i-j);
+      const du=D[j+1],dd=D[j],Bu=B[j+1],Bd=B[j];
+      const C=(du*u-dd*d)/(u-d)+(Bu-Bd)/(sv*(u-d));
+      const fu=du-C-k*(0-Math.abs(dd-du)*d)/(u-d);
+      const fd=dd-C-k*(Math.abs(du-dd)*u-0)/(u-d);
+      let dv;
+      if(du<dd){if(fu>=0)dv=(C+k/(u-d)*(du*u-dd*d))/(1+k);else if(fd>=0)dv=(C-k/(u-d)*(du*u+dd*d))/(1-k*(u+d)/(u-d));else dv=(C-k/(u-d)*(du*u-dd*d))/(1-k);}
+      else{if(fd>=0)dv=(C+k/(u-d)*(du*u-dd*d))/(1+k);else if(fu>=0)dv=(C+k/(u-d)*(du*u+dd*d))/(1+k*(u+d)/(u-d));else dv=(C-k/(u-d)*(du*u-dd*d))/(1-k);}
+      dn.push(dv);bn.push((sv*u*(du-dv+k*Math.abs(du-dv))+Bu)/R);
+    }
+    D=dn;B=bn;
+  }
+  return -(D[0]*S0+B[0]);
+}
+
+// ══ COMPUTE ══
+function fmt(v){return(v===null||v===undefined||isNaN(v))?'—':v.toFixed(4);}
+
+function compute(){
+  const p=getP();
+  document.getElementById('computing').style.display='flex';
+  setTimeout(()=>{
+    const isL=positionType==='long';
+    const h=p.T/p.n,u=Math.exp(p.sigma*Math.sqrt(h)),d=1/u,R=Math.pow(1+p.r,h);
+    const lel=lC(p.S0,p.K,p.T,p.r,p.sigma,p.k,p.n);
+    const lP=isL?lel.ask:lel.bid;
+    const bvP=isL?bvL(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k):bvS(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k);
+    const beP=bens(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k);
+    const paP=isL?pLng(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k):pSht(p.S0,p.K,p.T,p.r,p.sigma,p.n,p.k);
+    const bvOK=u*(1-p.k)>=R*(1+p.k)&&d*(1+p.k)<=R*(1-p.k);
+
+    document.getElementById('price-leland').textContent=fmt(lP);
+    document.getElementById('leland-pl').textContent=`prix ${isL?'ask (longue)':'bid (courte)'}`;
+    document.getElementById('leland-sigma').textContent=fmt(isL?lel.sa:lel.sb);
+    document.getElementById('leland-le').textContent=fmt(lel.Le);
+    document.getElementById('leland-bid').textContent=fmt(lel.bid);
+    document.getElementById('leland-spread').textContent=fmt(lel.spread);
+    document.getElementById('leland-bs').textContent=fmt(lel.base);
+
+    document.getElementById('price-bv').textContent=fmt(bvP);
+    document.getElementById('bv-label').textContent=`prix (position ${isL?'longue':'courte'})`;
+    document.getElementById('bv-u').textContent=u.toFixed(4);
+    document.getElementById('bv-d').textContent=d.toFixed(4);
+    document.getElementById('bv-R').textContent=R.toFixed(6);
+    document.getElementById('bv-n').textContent=p.n;
+
+    document.getElementById('price-bensaid').textContent=fmt(beP);
+    document.getElementById('bs-u').textContent=u.toFixed(4);
+    document.getElementById('bs-d').textContent=d.toFixed(4);
+    document.getElementById('bs-n').textContent=p.n;
+    const dB=!isNaN(bvP)?beP-bvP:NaN;
+    document.getElementById('bs-vs-bv').textContent=isNaN(dB)?'—':(dB>=0?'+':'')+fmt(dB);
+
+    document.getElementById('price-palmer').textContent=fmt(paP);
+    document.getElementById('palmer-label').textContent=`prix (position ${isL?'longue':'courte'})`;
+    const dP=!isNaN(bvP)&&!isNaN(paP)?paP-bvP:NaN;
+    document.getElementById('palmer-vs-bv').textContent=isNaN(dP)?'—':(dP>=0?'+':'')+fmt(dP);
+    document.getElementById('palmer-bv-cond').textContent=bvOK?'✓ satisfaite':'✗ violée';
+
+    document.getElementById('result-params').textContent=
+      `S₀=${p.S0} K=${p.K} σ=${(p.sigma*100).toFixed(1)}% k=${(p.k*100).toFixed(2)}% n=${p.n}`;
+
+    // Historical banner
+    const banner=document.getElementById('hist-banner');
+    if(activePreset){
+      const ap=activePreset;
+      const prices=[lP,bvP,beP,paP].filter(x=>!isNaN(x));
+      const avg=prices.length?prices.reduce((a,b)=>a+b)/prices.length:NaN;
+      const ec=!isNaN(avg)?(avg-ap.marketPrice)/ap.marketPrice*100:NaN;
+      const col=Math.abs(ec)>15?'var(--accent3)':'var(--accent4)';
+      const msg=Math.abs(ec)>15?'Écart significatif — limites des modèles':'Approximation raisonnable';
+      banner.className='hist-banner visible';
+      banner.innerHTML=`
+        <div class="hist-banner-title">📊 Comparaison avec données de marché — ${ap.ticker} · ${ap.period}</div>
+        <div class="hist-row">
+          <div class="hist-item"><span class="hist-item-label">Prix marché (indicatif)</span><span class="hist-item-val">${ap.marketPrice.toFixed(2)}</span><span class="hist-item-sub">${ap.marketNote}</span></div>
+          <div class="hist-item"><span class="hist-item-label">Moy. modèles</span><span class="hist-item-val">${isNaN(avg)?'—':avg.toFixed(2)}</span><span class="hist-item-sub">Leland · BV · Bensaïd · Palmer</span></div>
+          <div class="hist-item"><span class="hist-item-label">Écart relatif</span><span class="hist-item-val" style="color:${col}">${isNaN(ec)?'—':(ec>=0?'+':'')+ec.toFixed(1)+'%'}</span><span class="hist-item-sub">${msg}</span></div>
+          <div class="hist-item"><span class="hist-item-label">Régime</span><span class="hist-item-val" style="font-size:13px">${ap.regime}</span><span class="hist-item-sub">${ap.context.substring(0,55)}…</span></div>
+        </div>`;
+    } else {
+      banner.className='hist-banner';
+    }
+
+    // Table
+    const rows=[
+      {id:'leland',name:'Leland',price:lP,cadre:'Continu/discret',rep:'Approx. BS modifié'},
+      {id:'bv',name:'Boyle-Vorst',price:bvP,cadre:'Binomial discret',rep:'Exacte (auto-financé)'},
+      {id:'bensaid',name:'Bensaïd et al.',price:beP,cadre:'Binomial discret',rep:'Sur-réplication'},
+      {id:'palmer',name:'Palmer',price:paP,cadre:'Binomial discret',rep:'Exacte (généralisée)'},
+    ];
+    document.getElementById('comp-table-body').innerHTML=rows.map(rw=>{
+      const e=!isNaN(rw.price)?rw.price-lel.base:NaN;
+      return`<tr><td class="td-model td-${rw.id}">${rw.name}</td><td class="td-price">${isNaN(rw.price)?'—':rw.price.toFixed(4)}</td><td>${rw.cadre}</td><td>${rw.rep}</td><td style="color:${e>0?'var(--accent)':e<0?'var(--accent3)':'var(--text-muted)'}">${isNaN(e)?'—':(e>=0?'+':'')+e.toFixed(4)}</td></tr>`;
+    }).join('');
+
+    lastP=p;drawChart(p);
+    document.getElementById('computing').style.display='none';
+  },50);
+}
+
+// ══ CHART ══
+function drawChart(bp){
+  const cv=document.getElementById('myChart'),ctx=cv.getContext('2d');
+  cv.width=cv.offsetWidth;cv.height=280;
+  const W=cv.width,H=cv.height,pad={top:30,right:20,bottom:50,left:65};
+  const pW=W-pad.left-pad.right,pH=H-pad.top-pad.bottom;
+  let xV=[],xL='';
+  if(chartParam==='k'){xV=Array.from({length:30},(_,i)=>i*0.002);xL='Taux de coût k';}
+  else if(chartParam==='S0'){xV=Array.from({length:30},(_,i)=>bp.S0*0.6+i*bp.S0*0.028);xL='Prix initial S₀';}
+  else if(chartParam==='n'){xV=[2,4,6,8,10,13,20,30,40,52,70,100,150,200,250];xL='Périodes n';}
+  else{xV=Array.from({length:25},(_,i)=>0.05+i*0.025);xL='Volatilité σ';}
+  const isL=positionType==='long';
+  const cols={leland:'#c8a96e',bv:'#7eb8c8',palmer:'#7ec87e'};
+  const ser=[];
+  ['leland','bv','palmer'].forEach(m=>{
+    if(!activeModels[m])return;
+    ser.push({label:m==='leland'?'Leland':m==='bv'?'Boyle-Vorst':'Palmer',color:cols[m],
+      vals:xV.map(x=>{
+        const pp={...bp};
+        if(chartParam==='k')pp.k=x;else if(chartParam==='S0')pp.S0=x;
+        else if(chartParam==='n')pp.n=Math.round(x);else pp.sigma=x;
+        if(m==='leland'){const l=lC(pp.S0,pp.K,pp.T,pp.r,pp.sigma,pp.k,pp.n);return isL?l.ask:l.bid;}
+        if(m==='bv')return isL?bvL(pp.S0,pp.K,pp.T,pp.r,pp.sigma,pp.n,pp.k):bvS(pp.S0,pp.K,pp.T,pp.r,pp.sigma,pp.n,pp.k);
+        return isL?pLng(pp.S0,pp.K,pp.T,pp.r,pp.sigma,pp.n,pp.k):pSht(pp.S0,pp.K,pp.T,pp.r,pp.sigma,pp.n,pp.k);
+      })});
+  });
+  if(!ser.length)return;
+  const allY=ser.flatMap(s=>s.vals.filter(v=>!isNaN(v)));
+  if(!allY.length)return;
+  const yMn=Math.min(...allY)*0.95,yMx=Math.max(...allY)*1.05;
+  const xMn=xV[0],xMx=xV[xV.length-1];
+  const tX=v=>pad.left+(v-xMn)/(xMx-xMn)*pW;
+  const tY=v=>pad.top+pH-(v-yMn)/(yMx-yMn)*pH;
+  ctx.fillStyle='#1c1c22';ctx.fillRect(0,0,W,H);
+  for(let i=0;i<=5;i++){
+    const y=pad.top+pH*i/5;
+    ctx.strokeStyle='rgba(42,42,53,0.8)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(pad.left+pW,y);ctx.stroke();
+    ctx.fillStyle='#4a4845';ctx.font='10px DM Mono,monospace';ctx.textAlign='right';
+    ctx.fillText((yMx-(yMx-yMn)*i/5).toFixed(2),pad.left-8,y+4);
+  }
+  ctx.textAlign='center';ctx.fillStyle='#4a4845';ctx.font='10px DM Mono,monospace';
+  for(let i=0;i<=6;i++){
+    const xv=xMn+(xMx-xMn)*i/6;
+    ctx.fillText(chartParam==='k'||chartParam==='sigma'?(xv*100).toFixed(1)+'%':xv.toFixed(0),tX(xv),H-pad.bottom+18);
+  }
+  ctx.fillStyle='#7a7870';ctx.fillText(xL,pad.left+pW/2,H-8);
+  // Market price line
+  if(activePreset&&chartParam==='k'){
+    const mp=activePreset.marketPrice;
+    if(mp>=yMn&&mp<=yMx){
+      const py=tY(mp);
+      ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(126,200,126,0.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(pad.left,py);ctx.lineTo(pad.left+pW,py);ctx.stroke();
+      ctx.setLineDash([]);ctx.fillStyle='#7ec87e';ctx.textAlign='left';ctx.font='9px DM Mono,monospace';
+      ctx.fillText(`Marché: ${mp.toFixed(2)}`,pad.left+4,py-4);
+    }
+  }
+  ser.forEach(s=>{
+    ctx.setLineDash([]);ctx.strokeStyle=s.color;ctx.lineWidth=1.5;ctx.beginPath();
+    let first=true;
+    xV.forEach((x,i)=>{
+      const y=s.vals[i];if(isNaN(y)){first=true;return;}
+      first?ctx.moveTo(tX(x),tY(y)):ctx.lineTo(tX(x),tY(y));first=false;
+    });
+    ctx.stroke();
+  });
+  let lx=pad.left+10,ly=pad.top+14;
+  ser.forEach(s=>{
+    ctx.fillStyle=s.color;ctx.fillRect(lx,ly-5,16,2);
+    ctx.fillStyle='#e8e4dc';ctx.font='10px DM Mono,monospace';ctx.textAlign='left';
+    ctx.fillText(s.label,lx+22,ly);lx+=ctx.measureText(s.label).width+48;
+  });
+}
+
+// ══ INIT ══
+window.addEventListener('load',()=>{
+  initStockGrid();updateLe();
+  const cv=document.getElementById('myChart'),ctx=cv.getContext('2d');
+  cv.width=cv.offsetWidth;cv.height=280;
+  ctx.fillStyle='#1c1c22';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#4a4845';ctx.font='12px DM Mono,monospace';ctx.textAlign='center';
+  ctx.fillText('← Sélectionner un cas historique ou ajuster les paramètres, puis calculer',cv.width/2,cv.height/2);
+});
+window.addEventListener('resize',()=>{if(lastP)drawChart(lastP);});
+</script>
+</body>
+</html>
