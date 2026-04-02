@@ -539,54 +539,68 @@ function bvS(S0,K,T,r,s,n,k){
 }
 function bens(S0,K,T,r,s,n,k){
   // Traduction fidèle de TransactionCostPricer (Bensaid et al. 1992, version corrigée)
-  // - delta_steps=1000 (précision identique au Python)
-  // - récurrence backward de t=T-1 jusqu'à t=1
-  // - programme t=0 SANS coûts de transaction (correction bug original)
+  // delta_steps=200 : compromis précision/performance (n=250 => 250×201²≈10M ops)
+  // récurrence backward de t=T-1 jusqu'à t=1
+  // programme t=0 SANS coûts de transaction ("no transaction costs at origin", p.71)
   const h=T/n,u=Math.exp(s*Math.sqrt(h)),d=1/u;
-  const DS=1000;
-  const del=Array.from({length:DS+1},(_,i)=>i/DS);
+  const DS=200;
+  const del=new Float64Array(DS+1).map((_,i)=>i/DS);
   const nd=DS+1;
   const phi=y=>y>=0?y*(1+k):y/(1+k);
 
-  // Condition terminale Q_T : shape (n+1) x nd
-  // Q[j][l] = max(S_T-K,0) + S_T * phi(-delta[l])
+  // Pré-calculer phi(del[l] - del[i2]) pour toutes les paires — shape nd×nd
+  // phi_mat[l][i2] = phi(del[l] - del[i2])
+  const phi_mat=[];
+  for(let l=0;l<nd;l++){
+    const row=new Float64Array(nd);
+    for(let i2=0;i2<nd;i2++) row[i2]=phi(del[l]-del[i2]);
+    phi_mat.push(row);
+  }
+
+  // Condition terminale Q_T : (n+1) tableaux de taille nd
+  // Q[j][i2] = max(S_T-K,0) + S_T * phi(-del[i2])
   let Q=[];
   for(let j=0;j<=n;j++){
     const ST=S0*Math.pow(u,j)*Math.pow(d,n-j);
     const BT=Math.max(ST-K,0);
-    Q.push(del.map(dp=>BT+ST*phi(-dp)));
+    const row=new Float64Array(nd);
+    for(let i2=0;i2<nd;i2++) row[i2]=BT+ST*phi(-del[i2]);
+    Q.push(row);
   }
 
-  // Récurrence backward de t=T-1 jusqu'à t=1 (inclus)
+  // Récurrence backward t=T-1 .. 1
+  // best[i2] = min_{l} [ R_next[l] + St*phi(del[l] - del[i2]) ]
+  // i2 = indice de Delta_{t-1} (l'ancienne position)
+  // l  = indice de Delta_t     (la nouvelle position, sur laquelle on minimise)
   for(let t=n-1;t>=1;t--){
     const nQ=[];
     for(let j=0;j<=t;j++){
       const St=S0*Math.pow(u,j)*Math.pow(d,t-j);
+      const Qu=Q[j+1],Qd=Q[j];
       // R_next[l] = max(Q_up[l], Q_down[l])
       const Rt=new Float64Array(nd);
-      for(let l=0;l<nd;l++) Rt[l]=Math.max(Q[j+1][l],Q[j][l]);
-      // min_{delta_t} [ R_next(delta_t) + St*phi(delta_t - delta_{t-1}) ]
+      for(let l=0;l<nd;l++) Rt[l]=Math.max(Qu[l],Qd[l]);
+      // Pour chaque Delta_{t-1}=del[i2], minimiser sur Delta_t=del[l]
       const best=new Float64Array(nd).fill(Infinity);
       for(let l=0;l<nd;l++){
         const base=Rt[l];
+        const pm=phi_mat[l];
         for(let i2=0;i2<nd;i2++){
-          const v=base+St*phi(del[l]-del[i2]);
+          const v=base+St*pm[i2];
           if(v<best[i2]) best[i2]=v;
         }
       }
-      nQ.push(Array.from(best));
+      nQ.push(best);
     }
     Q=nQ;
   }
 
-  // Programme t=0 : PAS de coûts de transaction (correction vs code original)
-  // R1[l] = max(Q1_up[l], Q1_down[l])
-  // total_cost[l] = del[l]*S0 + R1[l]
+  // Programme t=0 : PAS de coûts de transaction
+  // total_cost[l] = del[l]*S0 + max(Q1_up[l], Q1_down[l])
   // P1 = min_l total_cost[l]
   let best=Infinity;
   for(let l=0;l<nd;l++){
-    const R1=Math.max(Q[1][l],Q[0][l]);
-    const c=del[l]*S0+R1;
+    const c=del[l]*S0+Math.max(Q[1][l],Q[0][l]);
     if(c<best) best=c;
   }
   return best;
