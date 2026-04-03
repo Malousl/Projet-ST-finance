@@ -107,7 +107,7 @@ for k in [0.005, 0.01, 0.02, 0.04]:
     ax.plot(dt_vals2 * 252, sh_vals, label=f'k = {int(k*100)}%')
 
 ax.axhline(sigma, linestyle='--', color='gray', label='$\\sigma$ (sans coûts)')
-ax.set_xlabel('Fréquence de révision (nombre de pas par an)')
+ax.set_xlabel('Espacement des révisions (en jours ouvrés)')
 ax.set_ylabel('Volatilité ajustée $\\hat{\\sigma}$')
 ax.set_title('Divergence de $\\hat{\\sigma}$ quand $\\Delta t \\to 0$\n(invalidation de Leland par Kabanov)')
 ax.legend(fontsize=8)
