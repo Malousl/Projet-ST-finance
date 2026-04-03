@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 
-# ── paramètres de base ──────────────────────────────────────────────
+#Paramètres
 S, K, T, r, sigma = 100, 100, 1.0, 0.05, 0.20
 
 def leland_number(k, sigma, dt):
@@ -50,7 +50,7 @@ def simulate_replication(S0, K, T, r, sigma, k, N, seed=42):
 fig, axes = plt.subplots(2, 2, figsize=(13, 10))
 fig.suptitle("Modèle de Leland — analyse des coûts de transaction", fontsize=14, fontweight='bold')
 
-# ── Graphe 1 : prix ask / bid / BS en fonction de k ─────────────────
+# Graphe 1 : prix ask / bid / BS en fonction de k
 ax = axes[0, 0]
 k_vals = np.linspace(0.001, 0.08, 100)
 dt_fixed = 1/52  # révision hebdomadaire
@@ -92,10 +92,9 @@ ax.set_ylabel('Surcoût Z = Prix Leland − Prix BS')
 ax.set_title('Surcoût Z en fonction de la fréquence\n(Proposition I : $Z \\propto 1/\\sqrt{\\Delta t}$)')
 ax.legend(fontsize=8)
 ax.grid(True, alpha=0.3)
-# repère pour montrer la divergence
 ax.axvline(52, linestyle=':', color='gray', alpha=0.6, label='Hebdo')
 
-# ── Graphe 3 : volatilité ajustée en fonction de Δt ─────────────────
+#Graphe 3 : volatilité ajustée en fonction de Δt
 ax = axes[1, 0]
 dt_vals2 = np.linspace(1/252, 1/2, 400)
 
@@ -109,11 +108,11 @@ for k in [0.005, 0.01, 0.02, 0.04]:
 ax.axhline(sigma, linestyle='--', color='gray', label='$\\sigma$ (sans coûts)')
 ax.set_xlabel('Espacement des révisions (en jours ouvrés)')
 ax.set_ylabel('Volatilité ajustée $\\hat{\\sigma}$')
-ax.set_title('Divergence de $\\hat{\\sigma}$ quand $\\Delta t \\to 0$\n(invalidation de Leland par Kabanov)')
+ax.set_title('Divergence de $\\hat{\\sigma}$ quand $\\Delta t \\to 0$\n()')
 ax.legend(fontsize=8)
 ax.grid(True, alpha=0.3)
 
-# ── Graphe 4 : erreur de réplication en fonction de N ───────────────
+# Graphe 4 : erreur de réplication en fonction de N
 ax = axes[1, 1]
 N_vals = [10, 20, 30, 52, 75, 100, 150, 200, 260]
 
